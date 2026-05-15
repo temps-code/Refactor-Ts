@@ -102,8 +102,6 @@ Además se agregaron dos cosas importantes:
 
 Y por último, armamos una **página web** donde seleccionás una orden y un usuario, apretás un botón, y ves en vivo si el flujo funciona o dónde falla (con 5 casos precargados para probar).
 
-**En criollo: agarramos un método que hacía de todo, lo partimos en pedacitos chicos donde cada uno hace una cosa bien, y armamos una página para mostrarlo funcionando.**
-
 ---
 
 ## Problema identificado en el código original
