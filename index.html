@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>OrderService — Demo</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #f5f7fa;
+      color: #1a1a2e;
+      padding: 1.5rem;
+      line-height: 1.5;
+    }
+
+    h1 { font-size: 1.5rem; margin-bottom: 0.25rem; }
+    .subtitle { color: #666; font-size: 0.9rem; margin-bottom: 1.5rem; }
+
+    /* ─── Layout ─── */
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; max-width: 1280px; margin: 0 auto; }
+    .full { grid-column: 1 / -1; }
+
+    .card {
+      background: white;
+      border-radius: 8px;
+      padding: 1rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    }
+    .card h2 { font-size: 1rem; margin-bottom: 0.75rem; color: #333; }
+    .card h2 small { font-weight: normal; color: #888; font-size: 0.8rem; }
+
+    /* ─── Tables ─── */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.8rem;
+    }
+    th, td {
+      text-align: left;
+      padding: 0.4rem 0.5rem;
+      border-bottom: 1px solid #eee;
+    }
+    th { font-weight: 600; color: #555; background: #fafafa; }
+    .table-wrap { max-height: 220px; overflow-y: auto; }
+
+    /* ─── Controls ─── */
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: flex-end;
+      gap: 1rem;
+    }
+    .controls label {
+      display: flex;
+      flex-direction: column;
+      gap: 0.25rem;
+      font-size: 0.85rem;
+      font-weight: 500;
+      min-width: 220px;
+    }
+    .controls select {
+      padding: 0.5rem;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      background: white;
+    }
+    .controls button {
+      padding: 0.5rem 1.5rem;
+      background: #2563eb;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      cursor: pointer;
+      height: fit-content;
+    }
+    .controls button:hover { background: #1d4ed8; }
+
+    /* ─── Result ─── */
+    .result-panel { display: none; margin-top: 0.75rem; }
+    .result-panel:not(.hidden) { display: block; }
+    .result-panel.success { border-left: 4px solid #16a34a; padding-left: 0.75rem; }
+    .result-panel.error { border-left: 4px solid #dc2626; padding-left: 0.75rem; }
+    .result-panel h3 { font-size: 0.9rem; margin-bottom: 0.5rem; }
+    .result-panel.success h3 { color: #16a34a; }
+    .result-panel.error h3 { color: #dc2626; }
+    .result-panel pre {
+      background: #1e293b;
+      color: #e2e8f0;
+      padding: 0.75rem;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      overflow-x: auto;
+    }
+
+    /* ─── Side effects ─── */
+    .side-effects {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.75rem;
+      margin-top: 0.75rem;
+    }
+    .effect-box {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 6px;
+      padding: 0.6rem;
+    }
+    .effect-box h4 {
+      font-size: 0.8rem;
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 0.4rem;
+    }
+    .effect-box .count {
+      background: #2563eb;
+      color: white;
+      border-radius: 999px;
+      padding: 0 0.5rem;
+      font-size: 0.75rem;
+    }
+    .effect-box pre {
+      font-size: 0.75rem;
+      white-space: pre-wrap;
+      color: #555;
+      min-height: 30px;
+    }
+
+    /* ─── Log ─── */
+    #log-output {
+      background: #1e293b;
+      color: #e2e8f0;
+      padding: 0.6rem;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-family: monospace;
+      min-height: 40px;
+      max-height: 120px;
+      overflow-y: auto;
+    }
+
+    .hidden { display: none; }
+
+    @media (max-width: 768px) {
+      .grid { grid-template-columns: 1fr; }
+      .side-effects { grid-template-columns: 1fr 1fr; }
+      .controls { flex-direction: column; }
+      .controls label { min-width: 100%; }
+    }
+  </style>
+</head>
+<body>
+
+  <h1>🛒 OrderService — Demo</h1>
+  <p class="subtitle">Procesamiento de órdenes paso a paso. Seleccioná un usuario y una orden, y ejecutá el flujo completo.</p>
+
+  <div class="grid">
+
+    <!-- Seed Data Panels -->
+    <div class="card">
+      <h2>👤 Usuarios</h2>
+      <div class="table-wrap" id="users-table"></div>
+    </div>
+
+    <div class="card">
+      <h2>📦 Productos</h2>
+      <div class="table-wrap" id="products-table"></div>
+    </div>
+
+    <div class="card full">
+      <h2>📋 Órdenes</h2>
+      <div class="table-wrap" id="orders-table"></div>
+    </div>
+
+    <!-- Controls -->
+    <div class="card full">
+      <h2>▶️ Procesar orden</h2>
+      <div class="controls">
+        <label>
+          Orden
+          <select id="order-select"></select>
+        </label>
+        <label>
+          Usuario
+          <select id="user-select"></select>
+        </label>
+        <button id="process-btn">Procesar</button>
+      </div>
+
+      <!-- Log -->
+      <div style="margin-top: 0.75rem;">
+        <h2 style="font-size:0.85rem; margin-bottom:0.3rem;">📝 Log</h2>
+        <div id="log-output">Listo para procesar...</div>
+      </div>
+
+      <!-- Result -->
+      <div id="result-panel" class="result-panel hidden">
+        <h3 id="result-title">Resultado</h3>
+        <pre id="result-json"></pre>
+      </div>
+
+      <!-- Side Effects -->
+      <div class="side-effects">
+        <div class="effect-box">
+          <h4>📢 Eventos <span class="count" id="events-count">0</span></h4>
+          <pre id="events-list">(ninguno)</pre>
+        </div>
+        <div class="effect-box">
+          <h4>📧 Emails <span class="count" id="emails-count">0</span></h4>
+          <pre id="emails-list">(ninguno)</pre>
+        </div>
+        <div class="effect-box">
+          <h4>⚠️ Alertas <span class="count" id="alerts-count">0</span></h4>
+          <pre id="alerts-list">(ninguno)</pre>
+        </div>
+        <div class="effect-box">
+          <h4>⭐ Fidelidad <span class="count" id="loyalty-count">0</span></h4>
+          <pre id="loyalty-list">(ninguno)</pre>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <script type="module" src="dist/app.js"></script>
+</body>
+</html>
