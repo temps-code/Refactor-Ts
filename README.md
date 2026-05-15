@@ -1,6 +1,6 @@
 <div align="center">
 
-<!-- <img src="public/preview.png" alt="Vista general de la demo" width="100%" /> -->
+<img src="public/screenshot.png" alt="Vista general de la demo" width="100%" />
 
 <h1>Práctico 2 — Ingeniería de Software II</h1>
 
@@ -29,6 +29,80 @@ Este proyecto corresponde al **Práctico 2 de Ingeniería de Software II** y abo
 Se tomó como base el archivo `infladores.py`, que contenía un método `processOrder` de aproximadamente 110 líneas donde convivían **14 responsabilidades distintas**: validación de usuarios, verificación KYC, validación de órdenes, control de stock, cálculos de precios, procesamiento de pagos, descuento de inventario, envío de notificaciones, acumulación de puntos de fidelidad, entre otras.
 
 El trabajo consistió en descomponer ese monolito en una arquitectura basada en **inyección de dependencias** con interfaces claras, implementaciones separadas, y una aplicación web de prueba que permite validar visualmente el comportamiento del servicio refactorizado.
+
+---
+
+## Explicación simple
+
+### ¿Qué había?
+
+Un archivo llamado `infladores.py` con una clase `OrderService` que tenía **un solo método** llamado `processOrder`. Y ese método hacía **todo**.
+
+Era como ir a un restaurant donde el **mismo chef** tenía que:
+
+1. Tomarte el pedido
+2. Verificar si tenés cuenta
+3. Ir a la heladera a ver si hay ingredientes
+4. Cocinar la comida
+5. Cobrarte
+6. Lavar los platos
+7. Mandarte el mail de agradecimiento
+8. Y además sumarte puntos por fidelidad
+
+Si algo salía mal en el paso 5, el paso 6 ya se había empezado a ejecutar. **Un desastre.**
+
+### ¿Qué infladores se detectaron?
+
+Se detectó **un inflador gigante**: el método `processOrder`. En software, un **inflador** (God Method) es un método que hace mucho más de lo que debería. Concretamente este hacía **14 cosas distintas**:
+
+| # | ¿Qué hacía? | ¿Por qué es problema? |
+|---|-------------|----------------------|
+| 1 | Buscar usuario en la BD | Si cambia esta regla, tocás TODO el método |
+| 2 | Verificar que no esté baneado | Lo mismo |
+| 3 | Verificar email verificado | Lo mismo |
+| 4 | Ejecutar verificación KYC | Lo mismo |
+| 5 | Buscar la orden en la BD | Lo mismo |
+| 6 | Validar orden (dueño, estado, expiración, items) | Lo mismo |
+| 7 | Revisar stock de cada producto | Lo mismo |
+| 8 | Calcular subtotal + descuento + impuestos | Lo mismo |
+| 9 | Obtener método de pago y cobrar | Lo mismo |
+| 10 | Descontar el stock | Lo mismo |
+| 11 | Alertar si queda poco stock | Lo mismo |
+| 12 | Guardar la orden como confirmada | Lo mismo |
+| 13 | Mandar email + evento de confirmación | Lo mismo |
+| 14 | Sumar puntos de fidelidad | Lo mismo |
+
+**110 líneas, 14 razones para cambiar.** Eso es un inflador.
+
+### ¿Cómo se refactorizó?
+
+Aplicamos **SRP (Single Responsibility Principle)**: cada método hace UNA sola cosa.
+
+El `processOrder` ahora es una lista de pasos que se lee de arriba a abajo:
+
+```txt
+procesarOrden:
+  1. validarUsuario         → busca y chequea que el usuario exista, no esté baneado, etc.
+  2. validarOrden           → busca y chequea que la orden sea válida
+  3. validarProductos       → verifica stock de cada producto
+  4. calcularSubtotal       → suma precios
+  5. calcularTotal          → aplica descuento + impuestos
+  6. procesarPago           → cobra y maneja si falla
+  7. descontarStock         → reduce inventario y alerta si falta
+  8. finalizarOrden         → guarda la orden confirmada
+  9. notificar              → manda email, evento, puntos fidelidad
+```
+
+Cada uno de esos pasos es un **método separado**. Si mañana cambia la forma de calcular impuestos, solo tocás `calcularTotal`, el resto queda intacto.
+
+Además se agregaron dos cosas importantes:
+
+- **Inyección de dependencias**: el servicio no crea sus propias conexiones a BD ni servicios externos. Recibe todo por constructor. Así podés cambiarlos sin tocar el código del servicio.
+- **Implementaciones en memoria**: creamos versiones falsas pero funcionales de cada dependencia para poder probar el servicio sin necesidad de base de datos ni APIs reales.
+
+Y por último, armamos una **página web** donde seleccionás una orden y un usuario, apretás un botón, y ves en vivo si el flujo funciona o dónde falla (con 5 casos precargados para probar).
+
+**En criollo: agarramos un método que hacía de todo, lo partimos en pedacitos chicos donde cada uno hace una cosa bien, y armamos una página para mostrarlo funcionando.**
 
 ---
 
@@ -137,7 +211,7 @@ Se implementaron **implementaciones en memoria** de todas las dependencias del s
 
 <div align="center">
 
-<!-- <img src="public/preview.png" alt="Demo del OrderService" width="100%" /> -->
+<img src="public/screenshot.png" alt="Demo del OrderService — panel principal" width="100%" />
 
 </div>
 
