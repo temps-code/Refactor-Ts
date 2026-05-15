@@ -151,6 +151,36 @@ El servicio recibe **todas sus dependencias por constructor** a través de inter
 - Intercambiar implementaciones sin modificar el código del servicio
 - Visualizar efectos secundarios (eventos, emails, alertas) a través de stubs registrados en memoria
 
+### Diagrama de arquitectura
+
+```
+┌──────────────────────────────────────────────────────┐
+│                    index.html                         │
+│  (UI que muestra datos, botón y resultados)          │
+└──────────────────────┬───────────────────────────────┘
+                       │ llama
+┌──────────────────────▼───────────────────────────────┐
+│                    main.ts                            │
+│  (crea dependencias, conecta UI con servicio)        │
+└──────┬──────────┬──────────┬──────────┬──────────────┘
+       │          │          │          │
+       ▼          ▼          ▼          ▼
+┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────┐
+│ repos.ts │ │services.ts││eventBus.ts││  seed.ts     │
+│ (en mem) │ │  (stubs)  │ │(en mem)  ││ (datos demo) │
+└────┬─────┘ └────┬─────┘ └────┬─────┘ └──────────────┘
+     │            │            │
+     └────────────┴────────────┘
+                    │ implementan las interfaces de types.ts
+                    ▼
+          ┌──────────────────┐
+          │   OrderService   │  ← solo conoce interfaces,
+          │  (refactorizado) │    no sabe qué implementación
+          └──────────────────┘    se le pasó
+```
+
+**Clave del diagrama:** el `OrderService` solo importa `types.ts`. No sabe que existen `InMemoryUserRepo`, `StubPaymentGateway` ni `InMemoryEventBus`. Si mañana querés conectar una base de datos real, creás `PostgresUserRepo implements UserRepo` y se lo pasás al constructor. El servicio ni se entera del cambio.
+
 ---
 
 ## Criterio de refactorización aplicado
