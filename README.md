@@ -4,7 +4,7 @@
 
 <h1>Práctico 2 — Ingeniería de Software II</h1>
 
-<p><strong>Refactorización de un servicio monolítico en una arquitectura con responsabilidades separadas, inyección de dependencias y validación del flujo mediante una aplicación web demo.</strong></p>
+<p><strong>Refactorización de un servicio monolítico en una arquitectura con responsabilidades separadas, inyección de dependencias y aplicación web demo.</strong></p>
 
 <p>
   <img src="https://img.shields.io/badge/TypeScript-5-3178C6?style=for-the-badge&logo=typescript&logoColor=white" alt="TypeScript 5">
@@ -24,11 +24,7 @@
 
 ## Descripción general
 
-Este proyecto corresponde al **Práctico 2 de Ingeniería de Software II** y aborda el concepto de **refactorización de código inflado (God Method)** aplicando principios **SOLID**, con énfasis en **Single Responsibility Principle (SRP)** e **Inversión de Dependencias**.
-
-Se tomó como base el archivo `infladores.py`, que contenía un método `processOrder` de aproximadamente 110 líneas donde convivían **14 responsabilidades distintas**: validación de usuarios, verificación KYC, validación de órdenes, control de stock, cálculos de precios, procesamiento de pagos, descuento de inventario, envío de notificaciones, acumulación de puntos de fidelidad, entre otras.
-
-El trabajo consistió en descomponer ese monolito en una arquitectura basada en **inyección de dependencias** con interfaces claras, implementaciones separadas, y una aplicación web de prueba que permite validar visualmente el comportamiento del servicio refactorizado.
+Este proyecto corresponde al **Práctico 2 de Ingeniería de Software II**. Se tomó como base el archivo `infladores.py` que contenía un método `processOrder` de ~110 líneas con **14 responsabilidades mezcladas** y se lo refactorizó aplicando **Single Responsibility Principle (SRP)** e **Inversión de Dependencias (DIP)**. El resultado es un `OrderService` con 9 métodos chicos, cada uno con una única tarea, más una aplicación web demo para validar visualmente el funcionamiento.
 
 ---
 
@@ -39,7 +35,6 @@ El trabajo consistió en descomponer ese monolito en una arquitectura basada en 
 Un archivo llamado `infladores.py` con una clase `OrderService` que tenía **un solo método** llamado `processOrder`. Y ese método hacía **todo**.
 
 Era como ir a un restaurant donde el **mismo chef** tenía que:
-
 1. Tomarte el pedido
 2. Verificar si tenés cuenta
 3. Ir a la heladera a ver si hay ingredientes
@@ -47,111 +42,104 @@ Era como ir a un restaurant donde el **mismo chef** tenía que:
 5. Cobrarte
 6. Lavar los platos
 7. Mandarte el mail de agradecimiento
-8. Y además sumarte puntos por fidelidad
+8. Sumarte puntos por fidelidad
 
 Si algo salía mal en el paso 5, el paso 6 ya se había empezado a ejecutar. **Un desastre.**
 
 ### ¿Qué infladores se detectaron?
 
-Se detectó **un inflador gigante**: el método `processOrder`. En software, un **inflador** (God Method) es un método que hace mucho más de lo que debería. Concretamente este hacía **14 cosas distintas**:
+Se detectó **un inflador gigante (God Method)**: un método que hace mucho más de lo que debería. Concretamente, **14 cosas distintas**:
 
-| # | ¿Qué hacía? | ¿Por qué es problema? |
-|---|-------------|----------------------|
-| 1 | Buscar usuario en la BD | Si cambia esta regla, tocás TODO el método |
-| 2 | Verificar que no esté baneado | Lo mismo |
-| 3 | Verificar email verificado | Lo mismo |
-| 4 | Ejecutar verificación KYC | Lo mismo |
-| 5 | Buscar la orden en la BD | Lo mismo |
-| 6 | Validar orden (dueño, estado, expiración, items) | Lo mismo |
-| 7 | Revisar stock de cada producto | Lo mismo |
-| 8 | Calcular subtotal + descuento + impuestos | Lo mismo |
-| 9 | Obtener método de pago y cobrar | Lo mismo |
-| 10 | Descontar el stock | Lo mismo |
-| 11 | Alertar si queda poco stock | Lo mismo |
-| 12 | Guardar la orden como confirmada | Lo mismo |
-| 13 | Mandar email + evento de confirmación | Lo mismo |
-| 14 | Sumar puntos de fidelidad | Lo mismo |
+| # | Responsabilidad | Si cambia... |
+|---|----------------|-------------|
+| 1 | Buscar usuario en la BD | Tocás TODO el método |
+| 2 | Verificar que no esté baneado | ídem |
+| 3 | Verificar email verificado | ídem |
+| 4 | Ejecutar verificación KYC | ídem |
+| 5 | Buscar la orden en la BD | ídem |
+| 6 | Validar orden (dueño, estado, expiración, items) | ídem |
+| 7 | Revisar stock de cada producto | ídem |
+| 8 | Calcular subtotal + descuento + impuestos | ídem |
+| 9 | Obtener método de pago y cobrar | ídem |
+| 10 | Descontar el stock | ídem |
+| 11 | Alertar si queda poco stock | ídem |
+| 12 | Guardar la orden como confirmada | ídem |
+| 13 | Mandar email + evento de confirmación | ídem |
+| 14 | Sumar puntos de fidelidad | ídem |
 
 **110 líneas, 14 razones para cambiar.** Eso es un inflador.
 
 ### ¿Cómo se refactorizó?
 
-Aplicamos **SRP (Single Responsibility Principle)**: cada método hace UNA sola cosa.
+Se aplicó **SRP**: cada método hace UNA sola cosa. El `processOrder` ahora es un pipeline que se lee de arriba a abajo:
 
-El `processOrder` ahora es una lista de pasos que se lee de arriba a abajo:
-
-```txt
-procesarOrden:
-  1. validarUsuario         → busca y chequea que el usuario exista, no esté baneado, etc.
-  2. validarOrden           → busca y chequea que la orden sea válida
-  3. validarProductos       → verifica stock de cada producto
-  4. calcularSubtotal       → suma precios
-  5. calcularTotal          → aplica descuento + impuestos
-  6. procesarPago           → cobra y maneja si falla
-  7. descontarStock         → reduce inventario y alerta si falta
-  8. finalizarOrden         → guarda la orden confirmada
-  9. notificar              → manda email, evento, puntos fidelidad
+```
+1. validarUsuario      → buscar usuario, verificar estado, email y KYC
+2. validarOrden        → buscar orden, verificar dueño, estado y vigencia
+3. validarProductos    → verificar stock de cada producto
+4. calcularSubtotal    → sumar precios
+5. calcularTotal       → aplicar descuento + impuestos
+6. procesarPago        → cobrar y manejar fallos
+7. descontarStock      → reducir inventario y alertar si falta
+8. finalizarOrden      → guardar orden como confirmada
+9. notificar           → enviar email, evento y puntos de fidelidad
 ```
 
-Cada uno de esos pasos es un **método separado**. Si mañana cambia la forma de calcular impuestos, solo tocás `calcularTotal`, el resto queda intacto.
-
-Además se agregaron dos cosas importantes:
-
-- **Inyección de dependencias**: el servicio no crea sus propias conexiones a BD ni servicios externos. Recibe todo por constructor. Así podés cambiarlos sin tocar el código del servicio.
-- **Implementaciones en memoria**: creamos versiones falsas pero funcionales de cada dependencia para poder probar el servicio sin necesidad de base de datos ni APIs reales.
-
-Y por último, armamos una **página web** donde seleccionás una orden y un usuario, apretás un botón, y ves en vivo si el flujo funciona o dónde falla (con 5 casos precargados para probar).
+Cada paso es un **método privado separado**. Si mañana cambia el cálculo de impuestos, solo tocás `calculateTotal`. Si cambia la validación de usuarios, solo tocás `getValidatedUser`. El resto no se entera.
 
 ---
 
-## Problema identificado en el código original
+## Del código original al refactorizado
 
-El método `processOrder` en el archivo original presentaba múltiples violaciones de diseño:
+### Lo que había vs. lo que se creó
 
-- **Una sola función hacía TODO**: validación de usuarios, KYC, verificación de órdenes, stock, precios, pagos, descuento de inventario, alertas, emails, eventos, puntos de fidelidad
-- **Mezcla de niveles de abstracción**: operaciones de bajo nivel (`product.stock -= item.quantity`) convivían con operaciones de alto nivel (`this.emailService.sendConfirmation`)
-- **Sin aislamiento de efectos secundarios**: si el descuento de stock fallaba después del cobro, no había rollback ni transaccionalidad
-- **Código duplicado**: se recorría la lista de items **dos veces** (una para validar stock y otra para descontar)
-- **Idioma inconsistente**: mensajes de error mezclaban español e inglés
-- **Extensión de archivo incorrecta**: el código estaba en TypeScript pero el archivo se llamaba `.py`
+```
+ANTES                                    DESPUÉS
+──────────────────────────────────────────────────────────────────
+infladores.py (1 archivo, 1 clase)
+                                         src/types.ts              (NUEVO)
+                                         src/OrderService.ts       (REFACTORIZADO)
+                                         src/infrastructure/
+                                           repos.ts                (NUEVO)
+                                           services.ts             (NUEVO)
+                                           eventBus.ts             (NUEVO)
+                                         src/seed.ts               (NUEVO)
+                                         src/main.ts               (NUEVO)
+                                         index.html                (NUEVO)
+```
+
+### Rastreo: cada línea del original fue a parar a un método específico
+
+| Código original (`infladores.py`) | Archivo nuevo | Método nuevo |
+|-----------------------------------|---------------|-------------|
+| Buscar usuario + validar (baneado, email, KYC) | `src/OrderService.ts` | `getValidatedUser()` |
+| Buscar orden + validar (dueño, estado, expiración) | `src/OrderService.ts` | `getValidatedOrder()` |
+| Validar stock de cada producto | `src/OrderService.ts` | `validateItems()` |
+| Calcular subtotal | `src/OrderService.ts` | `calculateSubtotal()` |
+| Aplicar descuentos + impuestos | `src/OrderService.ts` | `calculateTotal()` |
+| Obtener método de pago + cobrar | `src/OrderService.ts` | `processPayment()` |
+| Descontar stock + alertar bajo | `src/OrderService.ts` | `deductStock()` |
+| Guardar orden como confirmada | `src/OrderService.ts` | `finalizeOrder()` |
+| Email + evento + puntos fidelidad | `src/OrderService.ts` | `notifyConfirmation()` |
+| Dependencias (implícitas) | `src/types.ts` | Interfaces (`UserRepo`, `OrderRepo`, etc.) |
+| Implementaciones concretas | `src/infrastructure/repos.ts` | `InMemoryUserRepo`, etc. |
+| Stubs de servicios | `src/infrastructure/services.ts` | `StubPaymentGateway`, etc. |
+| Bus de eventos | `src/infrastructure/eventBus.ts` | `InMemoryEventBus` |
+| Datos de prueba | `src/seed.ts` | `seedData()` |
+| Wiring + UI | `src/main.ts` + `index.html` | Controlador y vista |
+
+### Mejoras incorporadas en la refactorización
+
+- **Sin código duplicado**: antes se recorría la lista de items dos veces (validar stock y descontar). Ahora `validateItems()` devuelve los productos ya resueltos y `deductStock()` los reutiliza.
+- **Sin efectos secundarios ocultos**: antes el pago se cobraba y después, si fallaba el descuento de stock, no había rollback. Ahora el pipeline es secuencial y explícito.
+- **Idioma consistente**: se unificaron los mensajes de error.
+- **Inyección de dependencias**: el servicio recibe todo por constructor. No crea nada internamente.
 
 ---
 
-## Solución implementada
+## Arquitectura actual
 
-Se desarrolló un proyecto **TypeScript vanilla** con las siguientes características:
-
-### Refactorización del servicio
-
-El método `processOrder` se descompuso en **8 métodos privados**, cada uno con una única responsabilidad:
-
-| Método | Responsabilidad |
-|--------|----------------|
-| `getValidatedUser` | Validar existencia, estado, email y KYC del usuario |
-| `getValidatedOrder` | Validar existencia, pertenencia, estado y vigencia de la orden |
-| `validateItems` | Verificar stock suficiente para cada producto |
-| `calculateSubtotal` | Sumar precios de los items validados |
-| `calculateTotal` | Aplicar descuentos e impuestos |
-| `processPayment` | Cobrar con el medio de pago y manejar fallos |
-| `deductStock` | Descontar inventario y disparar alertas de stock bajo |
-| `finalizeOrder` | Persistir la orden confirmada |
-| `notifyConfirmation` | Enviar email y publicar evento de confirmación |
-
-El método principal quedó reducido a **12 líneas** que describen el flujo completo sin exponer los detalles internos:
-
-```
-validar usuario → validar orden → validar stock → calcular subtotal → calcular total → cobrar → descontar stock → finalizar orden → notificar
-```
-
-### Inyección de dependencias
-
-El servicio recibe **todas sus dependencias por constructor** a través de interfaces (`UserRepo`, `OrderRepo`, `PaymentGateway`, `EventBus`, etc.), lo que permite:
-
-- Probar el servicio con implementaciones alternativas
-- Intercambiar implementaciones sin modificar el código del servicio
-- Visualizar efectos secundarios (eventos, emails, alertas) a través de stubs registrados en memoria
-
-### Diagrama de arquitectura
+### Diagrama
 
 ```
 ┌──────────────────────────────────────────────────────┐
@@ -179,81 +167,18 @@ El servicio recibe **todas sus dependencias por constructor** a través de inter
           └──────────────────┘    se le pasó
 ```
 
-**Clave del diagrama:** el `OrderService` solo importa `types.ts`. No sabe que existen `InMemoryUserRepo`, `StubPaymentGateway` ni `InMemoryEventBus`. Si mañana querés conectar una base de datos real, creás `PostgresUserRepo implements UserRepo` y se lo pasás al constructor. El servicio ni se entera del cambio.
+**Clave:** el `OrderService` solo importa `types.ts`. No sabe que existen `InMemoryUserRepo`, `StubPaymentGateway` ni `InMemoryEventBus`. Para conectar una base de datos real, creás `PostgresUserRepo implements UserRepo` y se lo pasás al constructor. El servicio ni se entera.
 
----
+### Cómo funciona hoy
 
-## Criterio de refactorización aplicado
+Cuando abrís `http://localhost:3000`:
 
-La refactorización se guió por los siguientes principios:
-
-- **Single Responsibility Principle (SRP)**: cada método extraído tiene una única razón para cambiar
-- **Inversión de Dependencias (DIP)**: el servicio depende de interfaces, no de implementaciones concretas
-- **Nivel único de abstracción**: el método `processOrder` solo orquesta; los detalles viven en los métodos privados
-- **Pipeline explícito**: el flujo se lee de arriba a abajo sin saltos ni efectos secundarios ocultos
-- **Eliminación de código duplicado**: `validateItems` devuelve los productos resueltos, que se reutilizan en `deductStock` sin volver a consultar el repositorio
-
----
-
-## Escenarios de prueba implementados
-
-Para validar el comportamiento del servicio refactorizado, se precargaron **5 escenarios distintos** en la aplicación demo:
-
-| Orden | Usuario | Escenario | Resultado esperado |
-|-------|---------|-----------|-------------------|
-| `order-ok` | `user-1` (Juan Pérez) | Flujo exitoso completo | ✅ Orden confirmada, email enviado, puntos acumulados |
-| `order-expired` | `user-1` (Juan Pérez) | Orden vencida | ❌ Bloqueado por validación de expiración |
-| `order-low-stock` | `user-2` (María García) | Stock insuficiente en uno de los productos | ❌ Bloqueado por validación de inventario |
-| `order-banned` | `user-banned` (Carlos López) | Usuario suspendido | ❌ Bloqueado por estado de usuario |
-| `order-empty` | `user-1` (Juan Pérez) | Orden sin items | ❌ Bloqueado por orden vacía |
-
-Cada escenario puede ejecutarse desde la interfaz web para verificar que las validaciones funcionan correctamente y que el flujo se interrumpe en el punto exacto donde corresponde.
-
----
-
-## Validaciones incorporadas
-
-El servicio valida secuencialmente cada condición antes de avanzar a la siguiente etapa:
-
-- **Usuario**: existencia, estado no baneado, email verificado, KYC aprobado
-- **Orden**: existencia, pertenencia al usuario, estado pendiente, items no vacío, no expirada
-- **Stock**: existencia del producto, cantidad suficiente disponible
-- **Pago**: método de pago registrado, transacción aprobada por el gateway
-
-Cada validación fallida lanza un error con un mensaje descriptivo que se muestra en la interfaz web.
-
----
-
-## Infraestructura de prueba
-
-Se implementaron **implementaciones en memoria** de todas las dependencias del servicio:
-
-- **Repositorios**: almacenan datos en `Map` internos con `structuredClone` para evitar mutación accidental
-- **Stubs de servicios**: permiten simular comportamientos (KYC falla, pago rechazado, etc.)
-- **EventBus en memoria**: registra eventos publicados para su inspección posterior
-- **Rastreo de efectos secundarios**: emails enviados, alertas generadas y puntos de fidelidad acumulados se almacenan y exponen en la UI
-
----
-
-## Vista previa
-
-<div align="center">
-
-<img src="public/screenshot.png" alt="Demo del OrderService — panel principal" width="100%" />
-
-</div>
-
----
-
-## Funcionamiento general
-
-1. La aplicación inicia con datos semilla precargados (usuarios, productos, órdenes, métodos de pago).
-2. La interfaz web muestra los datos disponibles en tablas.
-3. El usuario selecciona una orden y un usuario desde los menús desplegables.
-4. Al presionar "Procesar", el servicio ejecuta el flujo completo de `processOrder`.
-5. Si la operación es exitosa, se muestra el resultado JSON con los datos de la orden confirmada.
-6. Si falla alguna validación, se muestra el mensaje de error correspondiente.
-7. En ambos casos, se actualizan los paneles de efectos secundarios (eventos, emails, alertas, puntos de fidelidad).
+1. **Carga** → `index.html` importa el bundle `dist/app.js` (compilado con esbuild)
+2. **Inicialización** → `main.ts` crea todas las implementaciones en memoria y las inyecta en `OrderService`, luego `seedData()` precarga usuarios, productos y órdenes
+3. **Interacción** → seleccionás una orden y un usuario, apretás "Procesar"
+4. **Ejecución** → `orderService.processOrder(orderId, userId)` corre el pipeline de 9 pasos
+5. **Resultado** → si es exitoso, muestra el JSON de la orden confirmada. Si falla, muestra el error exacto ("Usuario prohibido", "Order expirado", etc.)
+6. **Efectos secundarios** → los paneles de eventos, emails, alertas y puntos se actualizan automáticamente
 
 ---
 
@@ -276,12 +201,24 @@ tsconfig.json                     # Configuración de TypeScript
 
 ---
 
-## Ejecución del proyecto
+## Escenarios de prueba
+
+| Orden | Usuario | Escenario | Resultado esperado |
+|-------|---------|-----------|-------------------|
+| `order-ok` | `user-1` (Juan Pérez) | Flujo exitoso completo | ✅ Orden confirmada, email enviado, puntos acumulados |
+| `order-expired` | `user-1` | Orden vencida | ❌ "Order expirado" |
+| `order-low-stock` | `user-2` (María García) | Stock insuficiente (pide 5, hay 2) | ❌ "Insuficiente stock" |
+| `order-banned` | `user-banned` (Carlos López) | Usuario suspendido | ❌ "Usuario prohibido" |
+| `order-empty` | `user-1` | Orden sin items | ❌ "orden vacia" |
+
+---
+
+## Ejecución
 
 ```bash
 npm install
-npm run build     # Compila TypeScript a un bundle ESM en dist/app.js
-npx serve .       # Sirve la aplicación en http://localhost:3000
+npm run build     # Compila TypeScript a dist/app.js
+npx serve .       # Abre http://localhost:3000
 ```
 
 O en un solo paso:
@@ -292,35 +229,12 @@ npm start
 
 ---
 
-## Prueba funcional
-
-Para verificar el funcionamiento del servicio refactorizado:
-
-1. abrir `http://localhost:3000` en el navegador
-2. revisar los datos precargados en las tablas (usuarios, productos, órdenes)
-3. seleccionar la orden `order-ok` y el usuario `user-1` (Juan Pérez)
-4. presionar "Procesar"
-5. comprobar que el resultado muestra éxito con los datos de la orden confirmada
-6. verificar los efectos secundarios: evento `order.confirmed`, email de confirmación, puntos de fidelidad
-7. repetir con los demás escenarios para verificar que cada validación falla correctamente:
-   - `order-expired` → "Order expirado"
-   - `order-low-stock` → "Insuficiente stock"
-   - `order-banned` → "Usuario prohibido"
-   - `order-empty` → "orden vacia"
-
-Como resultado, se puede comprobar que el servicio administra correctamente el flujo completo, las validaciones de negocio, y que los efectos secundarios se registran adecuadamente sin acoplar la lógica del dominio a implementaciones concretas.
-
----
-
 ## Conclusión
 
-Se logró transformar un método monolítico de 110 líneas con 14 responsabilidades acopladas en una arquitectura basada en **inyección de dependencias** y **responsabilidades separadas**.
+Se transformó un método monolítico de 110 líneas con 14 responsabilidades en una arquitectura basada en **inyección de dependencias** y **responsabilidades separadas**. El `OrderService` refactorizado permite:
 
-La aplicación web demo permite validar visualmente que:
+- Cambiar reglas de negocio tocando un solo método
+- Intercambiar implementaciones (memoria, BD real, APIs externas) sin modificar el servicio
+- Validar visualmente el flujo completo desde la aplicación web demo
 
-- el flujo de procesamiento de órdenes se comporta correctamente
-- cada validación de negocio se ejecuta en el orden adecuado
-- los efectos secundarios (eventos, emails, alertas) se registran sin acoplar la lógica del dominio
-- el servicio puede operar con diferentes implementaciones sin modificaciones
-
-La refactorización cumple con los principios **SOLID** aplicados al diseño de software, demostrando que un código bien estructurado no solo es más mantenible, sino también más fácil de probar y extender.
+La refactorización cumple con los principios **SOLID** aplicados al diseño de software, demostrando que un código bien estructurado es más mantenible, más fácil de probar y más sencillo de extender.
